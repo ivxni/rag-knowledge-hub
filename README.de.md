@@ -40,7 +40,7 @@ Die zentrale Anforderung: Antworten müssen auf Quelldokumente zurückführbar s
 │  └───────────┘  └───────────┘  └───────────┘        │
 ├─────────────────────────────────────────────────────┤
 │                    LLM-Provider                       │
-│  Claude Sonnet 4 (Generierung)  Transformers.js (Emb)│
+│  Claude Sonnet 4 (Generierung)  HuggingFace API (Emb) │
 ├─────────────────────────────────────────────────────┤
 │              Supabase (PostgreSQL + pgvector)         │
 │  Auth │ Workspaces │ Dokumente │ Chunks │ Nachrichten │
@@ -58,7 +58,7 @@ Die zentrale Anforderung: Antworten müssen auf Quelldokumente zurückführbar s
 | Datenbank | Supabase (PostgreSQL + pgvector) | Vorgegebener Stack, native Vektor-Unterstützung |
 | Auth | Supabase Auth | Integriert mit RLS, konfigurationsfreies Session-Management |
 | Generierung | Claude Sonnet 4 (Anthropic) | Starke Instruktionsbefolgung, strukturierte Ausgaben, konfigurierbar via Env-Variable |
-| Embeddings | Transformers.js (all-MiniLM-L6-v2) | Lokales ONNX-Modell, kein API-Key nötig, 384 Dimensionen |
+| Embeddings | HuggingFace Inference API (all-MiniLM-L6-v2) | Bewährtes Modell via HTTP, kein API-Key nötig (Free Tier), 384 Dimensionen |
 | Tests | Vitest | Schnell, ESM-nativ, exzellentes Mocking |
 
 ### RAG-Pipeline-Design
@@ -66,12 +66,12 @@ Die zentrale Anforderung: Antworten müssen auf Quelldokumente zurückführbar s
 **Ingestion-Ablauf:**
 1. Nutzer lädt Dokumenttext hoch (oder klickt "Seed Demo Data" für vorgefertigte Wissensbasis)
 2. **Chunker** (`lib/rag/chunker.ts`): Rekursiver Zeichensplitter bei ca. 500 Token pro Chunk mit 50 Token Überlappung. Trennt an natürlichen Grenzen (Absätze → Sätze → Wörter) um semantische Kohärenz zu bewahren.
-3. **Embeddings** (`lib/llm/local-embeddings.ts`): Lokale Inferenz via Transformers.js mit dem `all-MiniLM-L6-v2` ONNX-Modell. 384-dimensionale Vektoren werden direkt in Node.js generiert — kein externer API-Key erforderlich.
+3. **Embeddings** (`lib/llm/local-embeddings.ts`): Ruft das `sentence-transformers/all-MiniLM-L6-v2` Modell über die HuggingFace Inference API auf. 384-dimensionale Vektoren, in 16er-Batches für Durchsatz. Free Tier — kein API-Key erforderlich.
 4. **Speicherung**: Chunks + Embeddings in der `document_chunks`-Tabelle mit HNSW-Index für schnelle Abfragen.
 
 **Abfrage-Ablauf:**
 1. Nutzer stellt eine Frage
-2. Frage wird mit demselben lokalen Modell (all-MiniLM-L6-v2) eingebettet
+2. Frage wird mit demselben Modell (all-MiniLM-L6-v2) über die HuggingFace API eingebettet
 3. **Retriever** (`lib/rag/retriever.ts`): pgvector Kosinus-Ähnlichkeitssuche. Top-5 Chunks über 0.3 Ähnlichkeitsschwelle. Nutzt eine dedizierte SQL-Funktion mit `security definer` für Titel-Attribution.
 4. **Generator** (`lib/rag/generator.ts`): Erstellt einen strukturierten System-Prompt mit nummerierten Quellblöcken. **Claude Sonnet 4** (`claude-sonnet-4-20250514`) generiert eine Antwort, die auf den bereitgestellten Kontext beschränkt ist, mit `[Source N]` Zitaten. Das Modell ist konfigurierbar via `ANTHROPIC_MODEL` Env-Variable.
 
@@ -81,8 +81,8 @@ Die zentrale Anforderung: Antworten müssen auf Quelldokumente zurückführbar s
 - Rekursives Splitting bewahrt Absatz-/Satzstruktur gegenüber willkürlichen Schnitten
 
 **Begründung der Embedding-Strategie:**
-- Lokales Modell eliminiert externe API-Abhängigkeit und Kosten
 - `all-MiniLM-L6-v2` ist ein bewährtes Modell für semantische Suche (MTEB-Benchmark)
+- HuggingFace Inference API bietet zuverlässiges, konfigurationsfreies Hosting — Free Tier reicht für Demo
 - 384 Dimensionen sind ausreichend für RAG-Retrieval bei reduziertem Speicherbedarf
 
 ### Prompt Engineering
@@ -99,8 +99,8 @@ Der System-Prompt für den Generator folgt diesen Prinzipien:
 **Provider-Abstraktion:**
 Separate Interfaces für `GenerationProvider` und `EmbeddingProvider`, da nicht alle LLMs beide Fähigkeiten bieten (Claude hat keine Embedding-API). Factory Pattern mit Singleton-Instanzen vermeidet wiederholte Initialisierung.
 
-**Lokale Embeddings statt Cloud-API:**
-Transformers.js mit einem ONNX-Modell läuft direkt in Node.js und eliminiert die Notwendigkeit eines OpenAI API-Keys. Das Modell (~23MB) wird beim ersten Aufruf heruntergeladen und gecacht. Trade-off: Etwas niedrigere Embedding-Qualität als `text-embedding-3-small`, aber ausreichend für ein RAG-Demo-System.
+**HuggingFace Inference API für Embeddings:**
+Nutzt dasselbe `all-MiniLM-L6-v2` Modell via HTTP statt lokaler ONNX-Inferenz. Das sichert zuverlässiges Deployment auf allen Plattformen (Vercel Serverless, lokale Entwicklung). Der Free Tier reicht für Demo-Nutzung. Trade-off: Netzwerk-Latenz pro Embedding-Aufruf, aber Batching (16 Texte/Request) hält den Durchsatz hoch.
 
 **Nicht-streaming initialer Ansatz:**
 Der Chat nutzt synchrones Request/Response statt Streaming für den MVP. Dies vereinfacht Fehlerbehandlung und Quellenattribution (Quellen werden zusammen mit der Antwort zurückgegeben). Streaming kann durch Umschalten auf die vorhandene `streamAnswer()`-Funktion hinzugefügt werden.
@@ -148,7 +148,7 @@ src/
     llm/                                  # Provider-Abstraktion
       types.ts                            # GenerationProvider / EmbeddingProvider Interfaces
       anthropic.ts                        # Claude Generierungs-Adapter
-      local-embeddings.ts                 # Transformers.js lokaler Embedding-Adapter
+      local-embeddings.ts                 # HuggingFace Inference API Embedding-Adapter
     rag/                                  # Kern-RAG-Pipeline
       chunker.ts                          # Rekursiver Textsplitter
       embeddings.ts                       # Batch Embedding-Generierung
@@ -170,7 +170,7 @@ supabase/
 - Supabase-Projekt (Free Tier reicht aus)
 - Anthropic API-Key (Claude)
 
-> **Hinweis:** Embeddings laufen lokal via Transformers.js — kein OpenAI-Key nötig.
+> **Hinweis:** Embeddings nutzen die kostenlose HuggingFace Inference API — kein API-Key erforderlich. Optional `HUGGINGFACE_TOKEN` setzen für höhere Rate Limits.
 
 ### 1. Klonen & Installieren
 
@@ -214,7 +214,7 @@ npm run dev
 
 Nach Registrierung und Login auf **"Seed Demo Data"** im Dashboard klicken. Dies erstellt einen "AI Engineering Handbook" Workspace mit 7 vorgefertigten Dokumenten zu KI/ML-Engineering-Themen. Die Dokumente werden automatisch in Chunks aufgeteilt und eingebettet.
 
-Der erste Seed kann ca. 30 Sekunden dauern, da das Embedding-Modell (~23MB) heruntergeladen und gecacht wird.
+Der erste Seed kann ca. 30 Sekunden dauern, da jedes Dokument in Chunks aufgeteilt und über die HuggingFace API eingebettet wird.
 
 ### 6. Tests ausführen
 

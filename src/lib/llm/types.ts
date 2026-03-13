@@ -3,7 +3,7 @@
  *
  * Generation and embedding are separated because not all providers
  * offer both capabilities (e.g., Claude has no embedding API).
- * Generation uses Anthropic Claude; embeddings run locally via Transformers.js.
+ * Generation uses Anthropic Claude; embeddings use HuggingFace Inference API.
  */
 
 export interface GenerationProvider {
@@ -24,7 +24,7 @@ export interface LLMConfig {
     model?: string;
   };
   embedding: {
-    provider: "local";
+    provider: "huggingface";
     model?: string;
   };
 }

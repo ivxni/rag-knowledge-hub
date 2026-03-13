@@ -1,67 +1,61 @@
 /**
- * Local embedding provider using Transformers.js (ONNX WASM runtime).
+ * Embedding provider using the Hugging Face Inference API.
  *
- * Runs the all-MiniLM-L6-v2 model directly in Node.js — no external
- * API key required. Uses the WASM backend (onnxruntime-web) for
- * compatibility with both local dev and Vercel serverless.
- * The model (~23MB) is downloaded and cached on first use.
- * Produces 384-dimensional vectors suitable for cosine similarity search.
+ * Calls sentence-transformers/all-MiniLM-L6-v2 via HTTP — same model
+ * previously run locally via ONNX, now served by HF for reliable
+ * deployment on serverless platforms (Vercel).
  *
- * onnxruntime-node is replaced by onnxruntime-web via npm overrides
- * in package.json to avoid native binary issues on Vercel serverless.
- * The import is dynamic to prevent module-load crashes.
+ * 384-dimensional vectors, cosine similarity compatible.
+ * Free tier (~30k requests/month) is sufficient for demo usage.
+ * Set HUGGINGFACE_TOKEN in .env.local for higher rate limits.
  */
 
 import type { EmbeddingProvider } from "./types";
 
-const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
+const MODEL_URL =
+  "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2";
 const DIMENSIONS = 384;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let extractorPromise: Promise<any> | null = null;
-
-async function getExtractor() {
-  if (!extractorPromise) {
-    extractorPromise = (async () => {
-      const { env, pipeline } = await import("@xenova/transformers");
-
-      if (process.env.VERCEL) {
-        env.cacheDir = "/tmp/transformers-cache";
-      }
-      env.useBrowserCache = false;
-
-      return pipeline("feature-extraction", MODEL_NAME);
-    })();
-  }
-  return extractorPromise;
-}
+const BATCH_SIZE = 16;
 
 export class LocalEmbeddingProvider implements EmbeddingProvider {
   get dimensions(): number {
     return DIMENSIONS;
   }
 
+  private get headers(): Record<string, string> {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    const token = process.env.HUGGINGFACE_TOKEN;
+    if (token) h["Authorization"] = `Bearer ${token}`;
+    return h;
+  }
+
   async generateEmbedding(text: string): Promise<number[]> {
-    const extractor = await getExtractor();
-    const output = await extractor(text, {
-      pooling: "mean",
-      normalize: true,
-    });
-    return Array.from(output.data as Float32Array);
+    const [embedding] = await this.callApi([text]);
+    return embedding;
   }
 
   async generateEmbeddings(texts: string[]): Promise<number[][]> {
-    const extractor = await getExtractor();
     const results: number[][] = [];
+    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+      const batch = texts.slice(i, i + BATCH_SIZE);
+      const embeddings = await this.callApi(batch);
+      results.push(...embeddings);
+    }
+    return results;
+  }
 
-    for (const text of texts) {
-      const output = await extractor(text, {
-        pooling: "mean",
-        normalize: true,
-      });
-      results.push(Array.from(output.data as Float32Array));
+  private async callApi(inputs: string[]): Promise<number[][]> {
+    const res = await fetch(MODEL_URL, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify({ inputs, options: { wait_for_model: true } }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`HF Embedding API error ${res.status}: ${body}`);
     }
 
-    return results;
+    return res.json();
   }
 }

@@ -3,7 +3,7 @@
  *
  * Uses singleton pattern to avoid re-initializing clients on every request.
  * Generation: Anthropic Claude (cloud API).
- * Embeddings: Local Transformers.js model (no API key needed).
+ * Embeddings: HuggingFace Inference API (all-MiniLM-L6-v2, 384 dims).
  */
 
 import { AnthropicProvider } from "./anthropic";
