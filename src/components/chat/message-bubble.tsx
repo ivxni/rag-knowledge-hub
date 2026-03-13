@@ -9,6 +9,68 @@ interface MessageBubbleProps {
   message: Message;
 }
 
+function renderMarkdown(text: string) {
+  return text.split("\n").map((line, i) => {
+    if (line.startsWith("## ")) {
+      return (
+        <h3 key={i} className="mt-3 mb-1 text-sm font-bold first:mt-0">
+          {renderInline(line.slice(3))}
+        </h3>
+      );
+    }
+    if (line.startsWith("# ")) {
+      return (
+        <h2 key={i} className="mt-3 mb-1 text-base font-bold first:mt-0">
+          {renderInline(line.slice(2))}
+        </h2>
+      );
+    }
+    if (/^[-*] /.test(line)) {
+      return (
+        <li key={i} className="ml-4 list-disc">
+          {renderInline(line.slice(2))}
+        </li>
+      );
+    }
+    if (/^\d+\. /.test(line)) {
+      return (
+        <li key={i} className="ml-4 list-decimal">
+          {renderInline(line.replace(/^\d+\.\s/, ""))}
+        </li>
+      );
+    }
+    if (line.trim() === "") {
+      return <div key={i} className="h-2" />;
+    }
+    return (
+      <p key={i}>
+        {renderInline(line)}
+      </p>
+    );
+  });
+}
+
+function renderInline(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*|\[[^\]]+\])/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-semibold">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (/^\[Source \d+\]$/.test(part)) {
+      return (
+        <span key={i} className="rounded bg-primary/15 px-1 py-0.5 text-[11px] font-medium text-primary">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
@@ -41,8 +103,8 @@ export function MessageBubble({ message }: MessageBubbleProps) {
               : "bg-muted text-foreground"
           )}
         >
-          <div className="whitespace-pre-wrap break-words text-left">
-            {message.content}
+          <div className="break-words text-left">
+            {isUser ? message.content : renderMarkdown(message.content)}
           </div>
         </div>
 
