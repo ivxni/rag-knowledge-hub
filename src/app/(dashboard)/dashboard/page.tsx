@@ -107,13 +107,11 @@ export default function DashboardPage() {
       const res = await fetch("/api/seed", { method: "POST" });
       if (!res.ok) {
         console.error("Seed failed:", await res.text());
-        return;
       }
-      // Stay on dashboard, let user see the workspace appear
-      await refresh();
     } catch (error) {
       console.error("Seeding failed", error);
     } finally {
+      await refresh();
       setSeeding(false);
     }
   }

@@ -6,8 +6,7 @@
  * deployment on serverless platforms (Vercel).
  *
  * 384-dimensional vectors, cosine similarity compatible.
- * Free tier (~30k requests/month) is sufficient for demo usage.
- * Set HUGGINGFACE_TOKEN in .env.local for higher rate limits.
+ * Requires HUGGINGFACE_TOKEN (free account at huggingface.co).
  */
 
 import type { EmbeddingProvider } from "./types";
@@ -23,10 +22,16 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   }
 
   private get headers(): Record<string, string> {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
     const token = process.env.HUGGINGFACE_TOKEN;
-    if (token) h["Authorization"] = `Bearer ${token}`;
-    return h;
+    if (!token) {
+      throw new Error(
+        "HUGGINGFACE_TOKEN is not set. Get a free token at https://huggingface.co/settings/tokens"
+      );
+    }
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
