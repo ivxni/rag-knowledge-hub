@@ -2,7 +2,7 @@
 
 > **[English Version (README.md)](./README.md)**
 
-Ein Full-Stack Retrieval-Augmented Generation (RAG) System, gebaut mit Next.js und Supabase. Nutzer koennen Dokumente hochladen, Fragen stellen und KI-generierte Antworten erhalten, die auf ihrer eigenen Wissensbasis basieren — mit Quellenangaben.
+Ein Full-Stack Retrieval-Augmented Generation (RAG) System, gebaut mit Next.js und Supabase. Nutzer können Dokumente hochladen, Fragen stellen und KI-generierte Antworten erhalten, die auf ihrer eigenen Wissensbasis basieren — mit Quellenangaben.
 
 ## Entwicklungsmethodik
 
@@ -10,11 +10,11 @@ Ein Full-Stack Retrieval-Augmented Generation (RAG) System, gebaut mit Next.js u
 
 Die Aufgabe ist es, ein End-to-End RAG-Feature zu entwickeln, das folgendes demonstriert:
 - **Dokumenten-Ingestion** (Chunking, Embedding, Vektorspeicherung)
-- **Semantische Suche** (Vektor-Aehnlichkeitssuche)
-- **Kontextgebundene Generierung** (LLM-Antworten beschraenkt auf abgerufenen Kontext)
+- **Semantische Suche** (Vektor-Ähnlichkeitssuche)
+- **Kontextgebundene Generierung** (LLM-Antworten beschränkt auf abgerufenen Kontext)
 - **Full-Stack-Integration** (API-Design, Auth, Persistenz, UI)
 
-Die zentrale Anforderung: Antworten muessen auf Quelldokumente zurueckfuehrbar sein, nicht aus dem Trainingswissen des LLM halluziniert.
+Die zentrale Anforderung: Antworten müssen auf Quelldokumente zurückführbar sein, nicht aus dem Trainingswissen des LLM halluziniert.
 
 ### Architektur
 
@@ -50,69 +50,69 @@ Die zentrale Anforderung: Antworten muessen auf Quelldokumente zurueckfuehrbar s
 
 ### Tech-Stack
 
-| Schicht | Technologie | Begruendung |
+| Schicht | Technologie | Begründung |
 |---------|------------|-------------|
 | Framework | Next.js 16 (App Router) | Server Components, Route Handlers, integrierte Auth-Patterns |
-| Sprache | TypeScript (strict) | Typsicherheit ueber den gesamten Stack |
+| Sprache | TypeScript (strict) | Typsicherheit über den gesamten Stack |
 | Styling | Tailwind CSS + shadcn/ui | Schnelle, konsistente UI mit barrierefreien Komponenten |
-| Datenbank | Supabase (PostgreSQL + pgvector) | Vorgegebener Stack, native Vektor-Unterstuetzung |
+| Datenbank | Supabase (PostgreSQL + pgvector) | Vorgegebener Stack, native Vektor-Unterstützung |
 | Auth | Supabase Auth | Integriert mit RLS, konfigurationsfreies Session-Management |
 | Generierung | Claude Sonnet 4 (Anthropic) | Starke Instruktionsbefolgung, strukturierte Ausgaben, konfigurierbar via Env-Variable |
-| Embeddings | Transformers.js (all-MiniLM-L6-v2) | Lokales ONNX-Modell, kein API-Key noetig, 384 Dimensionen |
+| Embeddings | Transformers.js (all-MiniLM-L6-v2) | Lokales ONNX-Modell, kein API-Key nötig, 384 Dimensionen |
 | Tests | Vitest | Schnell, ESM-nativ, exzellentes Mocking |
 
 ### RAG-Pipeline-Design
 
 **Ingestion-Ablauf:**
-1. Nutzer laedt Dokumenttext hoch (oder klickt "Seed Demo Data" fuer vorgefertigte Wissensbasis)
-2. **Chunker** (`lib/rag/chunker.ts`): Rekursiver Zeichensplitter bei ca. 500 Token pro Chunk mit 50 Token Ueberlappung. Trennt an natuerlichen Grenzen (Absaetze → Saetze → Woerter) um semantische Kohaerenz zu bewahren.
+1. Nutzer lädt Dokumenttext hoch (oder klickt "Seed Demo Data" für vorgefertigte Wissensbasis)
+2. **Chunker** (`lib/rag/chunker.ts`): Rekursiver Zeichensplitter bei ca. 500 Token pro Chunk mit 50 Token Überlappung. Trennt an natürlichen Grenzen (Absätze → Sätze → Wörter) um semantische Kohärenz zu bewahren.
 3. **Embeddings** (`lib/llm/local-embeddings.ts`): Lokale Inferenz via Transformers.js mit dem `all-MiniLM-L6-v2` ONNX-Modell. 384-dimensionale Vektoren werden direkt in Node.js generiert — kein externer API-Key erforderlich.
-4. **Speicherung**: Chunks + Embeddings in der `document_chunks`-Tabelle mit HNSW-Index fuer schnelle Abfragen.
+4. **Speicherung**: Chunks + Embeddings in der `document_chunks`-Tabelle mit HNSW-Index für schnelle Abfragen.
 
 **Abfrage-Ablauf:**
 1. Nutzer stellt eine Frage
 2. Frage wird mit demselben lokalen Modell (all-MiniLM-L6-v2) eingebettet
-3. **Retriever** (`lib/rag/retriever.ts`): pgvector Kosinus-Aehnlichkeitssuche. Top-5 Chunks ueber 0.3 Aehnlichkeitsschwelle. Nutzt eine dedizierte SQL-Funktion mit `security definer` fuer Titel-Attribution.
-4. **Generator** (`lib/rag/generator.ts`): Erstellt einen strukturierten System-Prompt mit nummerierten Quellbloecken. **Claude Sonnet 4** (`claude-sonnet-4-20250514`) generiert eine Antwort, die auf den bereitgestellten Kontext beschraenkt ist, mit `[Source N]` Zitaten. Das Modell ist konfigurierbar via `ANTHROPIC_MODEL` Env-Variable.
+3. **Retriever** (`lib/rag/retriever.ts`): pgvector Kosinus-Ähnlichkeitssuche. Top-5 Chunks über 0.3 Ähnlichkeitsschwelle. Nutzt eine dedizierte SQL-Funktion mit `security definer` für Titel-Attribution.
+4. **Generator** (`lib/rag/generator.ts`): Erstellt einen strukturierten System-Prompt mit nummerierten Quellblöcken. **Claude Sonnet 4** (`claude-sonnet-4-20250514`) generiert eine Antwort, die auf den bereitgestellten Kontext beschränkt ist, mit `[Source N]` Zitaten. Das Modell ist konfigurierbar via `ANTHROPIC_MODEL` Env-Variable.
 
-**Begruendung der Chunking-Strategie:**
-- 500 Tokens balancieren Kontextvollstaendigkeit mit Retrieval-Praezision
-- 50 Token Ueberlappung verhindert Informationsverlust an Chunk-Grenzen
-- Rekursives Splitting bewahrt Absatz-/Satzstruktur gegenueber willkuerlichen Schnitten
+**Begründung der Chunking-Strategie:**
+- 500 Tokens balancieren Kontextvollständigkeit mit Retrieval-Präzision
+- 50 Token Überlappung verhindert Informationsverlust an Chunk-Grenzen
+- Rekursives Splitting bewahrt Absatz-/Satzstruktur gegenüber willkürlichen Schnitten
 
-**Begruendung der Embedding-Strategie:**
-- Lokales Modell eliminiert externe API-Abhaengigkeit und Kosten
-- `all-MiniLM-L6-v2` ist ein bewaehrtes Modell fuer semantische Suche (MTEB-Benchmark)
-- 384 Dimensionen sind ausreichend fuer RAG-Retrieval bei reduziertem Speicherbedarf
+**Begründung der Embedding-Strategie:**
+- Lokales Modell eliminiert externe API-Abhängigkeit und Kosten
+- `all-MiniLM-L6-v2` ist ein bewährtes Modell für semantische Suche (MTEB-Benchmark)
+- 384 Dimensionen sind ausreichend für RAG-Retrieval bei reduziertem Speicherbedarf
 
 ### Prompt Engineering
 
-Der System-Prompt fuer den Generator folgt diesen Prinzipien:
-- **Rollendefinition**: Explizite Identitaet als Wissensbasis-Assistent
+Der System-Prompt für den Generator folgt diesen Prinzipien:
+- **Rollendefinition**: Explizite Identität als Wissensbasis-Assistent
 - **Kontextbindung**: "Antworte NUR anhand der bereitgestellten Quellen" verhindert Halluzination
-- **Zitationsformat**: "[Source N]" Referenzen fuer Nachvollziehbarkeit
+- **Zitationsformat**: "[Source N]" Referenzen für Nachvollziehbarkeit
 - **Fallback-Verhalten**: Explizite Anweisung, es zu sagen wenn Quellen nicht ausreichen
 - **Sprachanpassung**: Antwortet in der Sprache des Nutzers
 
 ### Design-Entscheidungen & Trade-offs
 
 **Provider-Abstraktion:**
-Separate Interfaces fuer `GenerationProvider` und `EmbeddingProvider`, da nicht alle LLMs beide Faehigkeiten bieten (Claude hat keine Embedding-API). Factory Pattern mit Singleton-Instanzen vermeidet wiederholte Initialisierung.
+Separate Interfaces für `GenerationProvider` und `EmbeddingProvider`, da nicht alle LLMs beide Fähigkeiten bieten (Claude hat keine Embedding-API). Factory Pattern mit Singleton-Instanzen vermeidet wiederholte Initialisierung.
 
 **Lokale Embeddings statt Cloud-API:**
-Transformers.js mit einem ONNX-Modell laeuft direkt in Node.js und eliminiert die Notwendigkeit eines OpenAI API-Keys. Das Modell (~23MB) wird beim ersten Aufruf heruntergeladen und gecacht. Trade-off: Etwas niedrigere Embedding-Qualitaet als `text-embedding-3-small`, aber ausreichend fuer ein RAG-Demo-System.
+Transformers.js mit einem ONNX-Modell läuft direkt in Node.js und eliminiert die Notwendigkeit eines OpenAI API-Keys. Das Modell (~23MB) wird beim ersten Aufruf heruntergeladen und gecacht. Trade-off: Etwas niedrigere Embedding-Qualität als `text-embedding-3-small`, aber ausreichend für ein RAG-Demo-System.
 
 **Nicht-streaming initialer Ansatz:**
-Der Chat nutzt synchrones Request/Response statt Streaming fuer den MVP. Dies vereinfacht Fehlerbehandlung und Quellenattribution (Quellen werden zusammen mit der Antwort zurueckgegeben). Streaming kann durch Umschalten auf die vorhandene `streamAnswer()`-Funktion hinzugefuegt werden.
+Der Chat nutzt synchrones Request/Response statt Streaming für den MVP. Dies vereinfacht Fehlerbehandlung und Quellenattribution (Quellen werden zusammen mit der Antwort zurückgegeben). Streaming kann durch Umschalten auf die vorhandene `streamAnswer()`-Funktion hinzugefügt werden.
 
-**Service-Client fuer Embeddings:**
-Vektor-Einfuegungen nutzen den Supabase Service-Role-Client (umgeht RLS), da pgvector-Spalten spezielle Behandlung erfordern. Alle anderen Operationen nutzen den nutzerbezogenen Client mit RLS.
+**Service-Client für Embeddings:**
+Vektor-Einfügungen nutzen den Supabase Service-Role-Client (umgeht RLS), da pgvector-Spalten spezielle Behandlung erfordern. Alle anderen Operationen nutzen den nutzerbezogenen Client mit RLS.
 
 **Multi-Tenant via Workspaces:**
-Jeder Workspace isoliert Dokumente, Chunks und Konversationen. RLS-Policies stellen sicher, dass Nutzer nur eigene Daten sehen. Die `workspace_id`-Spalte auf `document_chunks` ermoeglicht effiziente gefilterte Vektorsuche.
+Jeder Workspace isoliert Dokumente, Chunks und Konversationen. RLS-Policies stellen sicher, dass Nutzer nur eigene Daten sehen. Die `workspace_id`-Spalte auf `document_chunks` ermöglicht effiziente gefilterte Vektorsuche.
 
 **HNSW vs IVFFlat Index:**
-HNSW wurde gegenueber IVFFlat fuer den Vektor-Index gewaehlt, da es besseren Recall bei kleinen Datensets bietet, ohne Training zu erfordern — ideal fuer einen Demo-/Evaluierungskontext.
+HNSW wurde gegenüber IVFFlat für den Vektor-Index gewählt, da es besseren Recall bei kleinen Datensets bietet, ohne Training zu erfordern — ideal für einen Demo-/Evaluierungskontext.
 
 ## Projektstruktur
 
@@ -152,7 +152,7 @@ src/
     rag/                                  # Kern-RAG-Pipeline
       chunker.ts                          # Rekursiver Textsplitter
       embeddings.ts                       # Batch Embedding-Generierung
-      retriever.ts                        # Vektor-Aehnlichkeitssuche
+      retriever.ts                        # Vektor-Ähnlichkeitssuche
       generator.ts                        # Prompt-Konstruktion + LLM-Aufruf
     seed/                                 # Demo-Seed-Daten + Ingestion-Script
   types/index.ts                          # Gemeinsame TypeScript-Interfaces
@@ -160,17 +160,17 @@ src/
   __tests__/rag/                          # Unit-Tests
 supabase/
   migration.sql                           # Datenbankschema + RLS + Funktionen
-  migrate-384.sql                         # Migration fuer lokale Embedding-Dimensionen
+  migrate-384.sql                         # Migration für lokale Embedding-Dimensionen
 ```
 
-## Setup & Ausfuehrung
+## Setup & Ausführung
 
 ### Voraussetzungen
 - Node.js 18+
 - Supabase-Projekt (Free Tier reicht aus)
 - Anthropic API-Key (Claude)
 
-> **Hinweis:** Embeddings laufen lokal via Transformers.js — kein OpenAI-Key noetig.
+> **Hinweis:** Embeddings laufen lokal via Transformers.js — kein OpenAI-Key nötig.
 
 ### 1. Klonen & Installieren
 
@@ -183,13 +183,13 @@ npm install
 ### 2. Supabase einrichten
 
 1. Neues Projekt erstellen auf [supabase.com](https://supabase.com)
-2. Im **SQL Editor** den Inhalt von `supabase/migration.sql` ausfuehren
+2. Im **SQL Editor** den Inhalt von `supabase/migration.sql` ausführen
 3. Unter **Authentication → Settings** die Option "Confirm email" bei Email Auth deaktivieren
 4. Projekt-URL und Keys unter **Settings → API** kopieren
 
 ### 3. Umgebungsvariablen
 
-`.env.example` nach `.env.local` kopieren und ausfuellen:
+`.env.example` nach `.env.local` kopieren und ausfüllen:
 
 ```bash
 cp .env.example .env.local
@@ -208,7 +208,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 npm run dev
 ```
 
-Oeffne [http://localhost:3000](http://localhost:3000).
+Öffne [http://localhost:3000](http://localhost:3000).
 
 ### 5. Wissensbasis seeden
 
@@ -216,19 +216,20 @@ Nach Registrierung und Login auf **"Seed Demo Data"** im Dashboard klicken. Dies
 
 Der erste Seed kann ca. 30 Sekunden dauern, da das Embedding-Modell (~23MB) heruntergeladen und gecacht wird.
 
-### 6. Tests ausfuehren
+### 6. Tests ausführen
 
 ```bash
 npm test
 ```
 
-## Moegliche Erweiterungen
+## Mögliche Erweiterungen
 
-- **Streaming-Antworten**: Umschalten von `generateAnswer` auf `streamAnswer` fuer Echtzeit-Token-Ausgabe
+- **Streaming-Antworten**: Umschalten von `generateAnswer` auf `streamAnswer` für Echtzeit-Token-Ausgabe
 - **Datei-Upload**: PDF/DOCX serverseitig parsen vor dem Chunking
-- **Hybride Suche**: Vektor-Aehnlichkeit mit Volltextsuche (BM25) kombinieren fuer besseren Recall
+- **Hybride Suche**: Vektor-Ähnlichkeit mit Volltextsuche (BM25) kombinieren für besseren Recall
 - **Re-Ranking**: Cross-Encoder Re-Ranking-Schritt nach initialem Retrieval
-- **Konversationskontext**: Vorherige Nachrichten im Generator-Prompt fuer Folgefragen einbeziehen
-- **Admin-Dashboard**: Nutzungsanalytik, Dokumentverwaltung ueber Workspaces
+- **Konversationskontext**: Vorherige Nachrichten im Generator-Prompt für Folgefragen einbeziehen
+- **Admin-Dashboard**: Nutzungsanalytik, Dokumentverwaltung über Workspaces
 - **Rate Limiting**: Token-basiertes Rate Limiting auf der Chat-API
-- **Deployment**: Vercel + Supabase gehostetes Projekt fuer Live-Demo
+- **n8n Workflow-Automatisierung**: Dokumenten-Ingestion über n8n-Workflows automatisieren — z.B. einen Google Drive Ordner, eine Notion-Datenbank oder Confluence-Space überwachen und den `/api/documents/ingest` Endpunkt bei Änderungen triggern, um die Wissensbasis stets aktuell zu halten
+- **Deployment**: Vercel + Supabase gehostetes Projekt für Live-Demo

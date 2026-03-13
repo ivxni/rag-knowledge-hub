@@ -231,4 +231,5 @@ npm test
 - **Conversation context**: Include previous messages in the generator prompt for follow-up questions
 - **Admin dashboard**: Usage analytics, document management across workspaces
 - **Rate limiting**: Token-based rate limiting on the chat API
+- **n8n workflow automation**: Automate document ingestion via n8n workflows — e.g. watch a Google Drive folder, Notion database, or Confluence space and trigger the `/api/documents/ingest` endpoint whenever content changes, keeping the knowledge base always up-to-date
 - **Deployment**: Vercel + Supabase hosted project for live demo
