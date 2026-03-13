@@ -6,31 +6,32 @@
  * compatibility with both local dev and Vercel serverless.
  * The model (~23MB) is downloaded and cached on first use.
  * Produces 384-dimensional vectors suitable for cosine similarity search.
+ *
+ * onnxruntime-node is replaced by onnxruntime-web via npm overrides
+ * in package.json to avoid native binary issues on Vercel serverless.
+ * The import is dynamic to prevent module-load crashes.
  */
 
-// Force onnxruntime-web before importing transformers
-// This prevents @xenova/transformers from trying to load onnxruntime-node
-// which has native binaries that don't work on Vercel serverless
-import "onnxruntime-web";
-
-import { env, pipeline } from "@xenova/transformers";
 import type { EmbeddingProvider } from "./types";
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
 const DIMENSIONS = 384;
 
-// On Vercel, /tmp is the only writable directory
-if (process.env.VERCEL) {
-  env.cacheDir = "/tmp/transformers-cache";
-}
-env.useBrowserCache = false;
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let extractorPromise: Promise<any> | null = null;
 
-function getExtractor() {
+async function getExtractor() {
   if (!extractorPromise) {
-    extractorPromise = pipeline("feature-extraction", MODEL_NAME);
+    extractorPromise = (async () => {
+      const { env, pipeline } = await import("@xenova/transformers");
+
+      if (process.env.VERCEL) {
+        env.cacheDir = "/tmp/transformers-cache";
+      }
+      env.useBrowserCache = false;
+
+      return pipeline("feature-extraction", MODEL_NAME);
+    })();
   }
   return extractorPromise;
 }
