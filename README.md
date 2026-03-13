@@ -1,5 +1,7 @@
 # Knowledge Hub — RAG-powered Knowledge Base
 
+> **[Deutsche Version (README.de.md)](./README.de.md)**
+
 A full-stack Retrieval-Augmented Generation (RAG) system built with Next.js and Supabase. Users can upload documents, ask questions, and receive AI-generated answers grounded in their own knowledge base with source citations.
 
 ## Development Methodology
@@ -55,7 +57,7 @@ The key constraint is that answers must be traceable back to source documents, n
 | Styling | Tailwind CSS + shadcn/ui | Rapid, consistent UI with accessible components |
 | Database | Supabase (PostgreSQL + pgvector) | Required stack, native vector support |
 | Auth | Supabase Auth | Integrated with RLS, zero-config session management |
-| Generation | Claude (Anthropic) | Strong instruction following, structured output |
+| Generation | Claude Sonnet 4 (Anthropic) | Strong instruction following, structured output, configurable via env |
 | Embeddings | Transformers.js (all-MiniLM-L6-v2) | Local ONNX model, no API key needed, 384 dimensions |
 | Testing | Vitest | Fast, ESM-native, excellent mocking |
 
@@ -69,9 +71,9 @@ The key constraint is that answers must be traceable back to source documents, n
 
 **Query Flow:**
 1. User asks question
-2. Question is embedded using the same local model
-3. **Retriever** (`lib/rag/retriever.ts`): pgvector cosine similarity search. Top-5 chunks above 0.3 threshold. Uses a dedicated SQL function with `security definer` to join documents for title attribution.
-4. **Generator** (`lib/rag/generator.ts`): Builds a structured system prompt with numbered source blocks. Claude generates an answer constrained to the provided context, with source citations.
+2. Question is embedded using the same local model (all-MiniLM-L6-v2)
+3. **Retriever** (`lib/rag/retriever.ts`): pgvector cosine similarity search. Top-5 chunks above 0.3 similarity threshold. Uses a dedicated SQL function with `security definer` to join documents for title attribution.
+4. **Generator** (`lib/rag/generator.ts`): Builds a structured system prompt with numbered source blocks. **Claude Sonnet 4** (`claude-sonnet-4-20250514`) generates an answer constrained to the provided context, with `[Source N]` citations. The model is configurable via `ANTHROPIC_MODEL` env var.
 
 **Chunking Strategy Rationale:**
 - 500 tokens balances context completeness with retrieval precision
