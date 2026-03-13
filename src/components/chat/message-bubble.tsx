@@ -16,31 +16,42 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
           isUser ? "bg-primary text-primary-foreground" : "bg-muted"
         )}
       >
-        {isUser ? <User className="h-4 w-4" /> : <Brain className="h-4 w-4" />}
+        {isUser ? (
+          <User className="h-3.5 w-3.5" />
+        ) : (
+          <Brain className="h-3.5 w-3.5" />
+        )}
       </div>
 
-      <div className={cn("max-w-[80%] space-y-2", isUser && "text-right")}>
+      <div
+        className={cn(
+          "min-w-0 max-w-[85%] space-y-2",
+          isUser && "text-right"
+        )}
+      >
         <div
           className={cn(
-            "inline-block rounded-2xl px-4 py-2.5 text-sm",
+            "inline-block rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
             isUser
               ? "bg-primary text-primary-foreground"
               : "bg-muted text-foreground"
           )}
         >
-          <div className="whitespace-pre-wrap text-left">{message.content}</div>
+          <div className="whitespace-pre-wrap break-words text-left">
+            {message.content}
+          </div>
         </div>
 
         {message.sources && message.sources.length > 0 && (
           <div className="space-y-1.5 text-left">
-            <p className="text-xs font-medium text-muted-foreground">
+            <p className="text-[11px] font-medium text-muted-foreground">
               Sources ({message.sources.length})
             </p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="grid gap-1.5 sm:grid-cols-2">
               {message.sources.map((source, i) => (
                 <SourceCard key={i} source={source} index={i + 1} />
               ))}

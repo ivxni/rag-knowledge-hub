@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { MessageBubble } from "./message-bubble";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Brain } from "lucide-react";
 import type { Message } from "@/types";
 
@@ -12,10 +11,11 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ messages, loading }: ChatWindowProps) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, loading]);
 
   if (messages.length === 0 && !loading) {
@@ -27,7 +27,8 @@ export function ChatWindow({ messages, loading }: ChatWindowProps) {
         <div className="max-w-xs space-y-1">
           <p className="font-semibold">Ask a question</p>
           <p className="text-sm text-muted-foreground">
-            Your answers will be grounded in the workspace documents. Make sure you have documents ingested first.
+            Your answers will be grounded in the workspace documents. Make sure
+            you have documents ingested first.
           </p>
         </div>
       </div>
@@ -35,8 +36,8 @@ export function ChatWindow({ messages, loading }: ChatWindowProps) {
   }
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="mx-auto max-w-2xl space-y-6 p-6">
+    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
@@ -50,8 +51,7 @@ export function ChatWindow({ messages, loading }: ChatWindowProps) {
             Thinking...
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
-    </ScrollArea>
+    </div>
   );
 }
