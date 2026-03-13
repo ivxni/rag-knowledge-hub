@@ -1,22 +1,26 @@
 /**
- * Local embedding provider using Transformers.js (ONNX runtime).
+ * Local embedding provider using Transformers.js (ONNX WASM runtime).
  *
  * Runs the all-MiniLM-L6-v2 model directly in Node.js — no external
- * API key required. The model (~23MB) is downloaded and cached on first use.
+ * API key required. Uses the WASM backend (onnxruntime-web) for
+ * compatibility with both local dev and Vercel serverless.
+ * The model (~23MB) is downloaded and cached on first use.
  * Produces 384-dimensional vectors suitable for cosine similarity search.
- *
- * On Vercel serverless, uses /tmp for model caching and WASM backend
- * since native onnxruntime-node binaries aren't available.
  */
+
+// Force onnxruntime-web before importing transformers
+// This prevents @xenova/transformers from trying to load onnxruntime-node
+// which has native binaries that don't work on Vercel serverless
+import "onnxruntime-web";
 
 import { env, pipeline } from "@xenova/transformers";
 import type { EmbeddingProvider } from "./types";
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
 const DIMENSIONS = 384;
-const IS_VERCEL = !!process.env.VERCEL;
 
-if (IS_VERCEL) {
+// On Vercel, /tmp is the only writable directory
+if (process.env.VERCEL) {
   env.cacheDir = "/tmp/transformers-cache";
 }
 env.useBrowserCache = false;
