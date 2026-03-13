@@ -4,13 +4,22 @@
  * Runs the all-MiniLM-L6-v2 model directly in Node.js — no external
  * API key required. The model (~23MB) is downloaded and cached on first use.
  * Produces 384-dimensional vectors suitable for cosine similarity search.
+ *
+ * On Vercel serverless, uses /tmp for model caching and WASM backend
+ * since native onnxruntime-node binaries aren't available.
  */
 
-import { pipeline } from "@xenova/transformers";
+import { env, pipeline } from "@xenova/transformers";
 import type { EmbeddingProvider } from "./types";
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
 const DIMENSIONS = 384;
+const IS_VERCEL = !!process.env.VERCEL;
+
+if (IS_VERCEL) {
+  env.cacheDir = "/tmp/transformers-cache";
+}
+env.useBrowserCache = false;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let extractorPromise: Promise<any> | null = null;
@@ -40,7 +49,6 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
     const extractor = await getExtractor();
     const results: number[][] = [];
 
-    // Process individually to avoid memory spikes with large batches
     for (const text of texts) {
       const output = await extractor(text, {
         pooling: "mean",

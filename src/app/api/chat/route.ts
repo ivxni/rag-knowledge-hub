@@ -15,6 +15,8 @@ import { createClient } from "@/lib/supabase/server";
 import { retrieveRelevantChunks } from "@/lib/rag/retriever";
 import { generateAnswer } from "@/lib/rag/generator";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();

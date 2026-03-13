@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { seed } from "@/lib/seed";
 
+export const maxDuration = 60;
+
 export async function POST() {
   try {
     const supabase = await createClient();

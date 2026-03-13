@@ -17,6 +17,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/rag/chunker";
 import { generateEmbeddings } from "@/lib/rag/embeddings";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
