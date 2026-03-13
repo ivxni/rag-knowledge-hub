@@ -12,7 +12,7 @@
 import type { EmbeddingProvider } from "./types";
 
 const MODEL_URL =
-  "https://router.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2";
+  "https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2";
 const DIMENSIONS = 384;
 const BATCH_SIZE = 16;
 
